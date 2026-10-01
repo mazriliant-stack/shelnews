@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shelnews"
+version = "0.1.0"
+description = "API over the SHEL News Gateway with headline classification and highlighting"
+requires-python = ">=3.10"
+dependencies = ["fastapi>=0.110", "uvicorn>=0.29"]
+
+[project.optional-dependencies]
+# Install the proprietary wheels separately: pip install shel_newsgateway-*.whl labs_journal-*.whl
+test = ["pytest", "httpx"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
