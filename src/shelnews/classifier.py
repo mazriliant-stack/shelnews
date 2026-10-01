@@ -15,32 +15,41 @@ class Highlight:
 class Classification:
     categories: list = field(default_factory=list)
     highlights: list = field(default_factory=list)
+    noise: str | None = None
 
 
 def _any(patterns, text):
     return any(p.search(text) for p in patterns)
 
 
-def classify(headline, categories=None, highlights=None):
-    categories = rules.CATEGORIES if categories is None else categories
-    highlights = rules.HIGHLIGHTS if highlights is None else highlights
+def classify(headline, tabs=None, noise=None):
+    tabs = rules.TABS if tabs is None else tabs
+    noise = rules.NOISE if noise is None else noise
 
     result = Classification()
-    for cat in categories:
-        if _any(cat.include, headline) and not _any(cat.exclude, headline):
-            result.categories.append(cat.name)
+    for reason, patterns in noise.items():
+        if _any(patterns, headline):
+            result.noise = reason
+            return result
 
     spans = []
-    for hl in highlights:
-        if _any(hl.unless, headline):
+    for tab in tabs:
+        if _any(tab.exclude, headline):
             continue
-        for p in hl.terms:
-            spans.extend((m.start(), m.end(), hl.color) for m in p.finditer(headline))
+        matches = [m for p in tab.triggers for m in p.finditer(headline)]
+        if not matches:
+            continue
+        result.categories.append(tab.name)
+        if tab.name not in rules.UNHIGHLIGHTED_TABS:
+            spans.extend((m.start(), m.end()) for m in matches)
 
-    # Drop spans overlapping an earlier (or longer) one.
-    last_end = -1
-    for start, end, color in sorted(spans, key=lambda s: (s[0], -s[1])):
-        if start >= last_end:
-            result.highlights.append(Highlight(start, end, headline[start:end], color))
-            last_end = end
+    # Merge overlapping trigger spans.
+    for start, end in sorted(spans):
+        last = result.highlights[-1] if result.highlights else None
+        if last and start <= last.end:
+            last.end = max(last.end, end)
+            last.text = headline[last.start:last.end]
+        else:
+            result.highlights.append(
+                Highlight(start, end, headline[start:end], rules.HIGHLIGHT_COLOR))
     return result
